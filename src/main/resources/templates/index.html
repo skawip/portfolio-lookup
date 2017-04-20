@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Markit On Demand Lookup API Demo</title>
+	<link rel="stylesheet" href="../Resources/bootstrap/bootstrap-2.3.2.css" />
+	<link rel="stylesheet" href="../Resources/header.css" />
+	<link rel="stylesheet" href="../Resources/footer.css" />
+	<link rel="stylesheet" href="demo.css" />
+	<style type="text/css">
+		
+	</style>
+	<script type="text/javascript">
+
+		var _gaq = _gaq || [];
+		_gaq.push(['_setAccount', 'UA-29467710-1']);
+		_gaq.push(['_trackPageview']);
+
+		(function() {
+		var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+		})();
+
+	</script>
+	<script type="text/javascript" src="QuoteService.js"></script>
+</head>
+<body>
+
+<!-- <script type="text/javascript" src="../Resources/header.js"></script> -->
+
+<div class="container web">
+	
+	<div class="row content">
+		<div class="span12">
+			<h3 class="page-header">Portfolio Manager</h3>
+			
+			<form class="well form-inline">
+				<label>Try typing "Micro" or "GE":</label>
+				<input type="text" id="symbolsearch" class="input-" placeholder="Enter company name or symbol"></input>
+				<span class="help-inline hide"><img src="spinner.gif" align="absmiddle" /> loading...</span>
+				<span class="help-inline hide label label-info"></span>
+			</form>
+		</div>
+	</div>
+</div>
+
+<!-- <script type="text/javascript" src="../Resources/footer.js"></script> -->
+
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+<script type="text/javascript" src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+
+	$(function() {
+
+		$("#symbolsearch")
+			.focus()
+			.autocomplete({
+				source: function(request,response) {
+					$.ajax({
+						beforeSend: function(){ 
+							$("span.help-inline").show();
+							$("span.label-info").empty().hide();
+						},
+						url: "http://dev.markitondemand.com/api/v2/Lookup/jsonp",
+						dataType: "jsonp",
+						data: {
+							input: request.term
+						},
+						success: function(data) {
+							response( $.map(data, function(item) {
+								return {
+									label: item.Name + " (" +item.Exchange+ ")",
+									value: item.Symbol
+								}
+							}));
+							$("span.help-inline").hide();
+						}
+					});
+				},
+				minLength: 0,
+				select: function( event, ui ) {
+					//console.log(ui.item);
+					$("span.label-info").html("You selected " + ui.item.label).fadeIn("fast");
+					new Markit.QuoteService(ui.item.value, function(jsonResult) {
+						
+						this.clearResult();
+						
+					    //Catch errors
+					    if (!jsonResult || jsonResult.Message){
+					        alert("Error");
+					        return;
+					    }
+
+					    this.success(jsonResult);
+					    
+					});
+				},
+				open: function() {
+					//$(this).removeClass("ui-corner-all").addClass("ui-corner-top");
+				},
+				close: function() {
+					//$(this).removeClass("ui-corner-top").addClass("ui-corner-all");
+				}
+			})
+		;
+	});
+	
+	
+	
+	Markit.QuoteService.prototype.success = function(jsonResult){
+		var $container = $('<div class="hide" id="resultContainer"></div>');
+		$container.append("<h4>"+jsonResult.Name+" ("+jsonResult.Symbol+")</h4>");
+		$container.append(this.renderResultTable(jsonResult));
+		$("form").after($container);
+		$container.fadeIn('fast');
+	};
+	
+	Markit.QuoteService.prototype.renderResultTable = function(jsonResult){
+		var $table = $("<table />"),
+			$thead = $("<thead />"),
+			$tbody = $("<tbody />"),
+			tableHeadCells = [];
+			tableCells = [];
+		
+		tableHeadCells.push("<tr>");
+		tableHeadCells.push("<th>Name</th>");
+		tableHeadCells.push("<th>Symbol</th>");
+		tableHeadCells.push("<th>Last Price</th>");
+		tableHeadCells.push("<th>Change</th>");
+		tableHeadCells.push("<th>Change Percent</th>");
+		tableHeadCells.push("<th>Change Percent YTD</th>");
+		tableHeadCells.push("<th>Volume</th>");
+		//tableHeadCells.push("<th>Qty</th>");
+		tableHeadCells.push("</tr>");
+
+		tableCells.push("<tr>");
+		tableCells.push("<td>",jsonResult.Name,"</td>");
+		tableCells.push("<td>",jsonResult.Symbol,"</td>");
+		tableCells.push("<td>$",jsonResult.LastPrice,"</td>");
+		tableCells.push("<td>",jsonResult.Change.toFixed(2),"</td>");
+		tableCells.push("<td>",jsonResult.ChangePercent.toFixed(2),"%</td>");
+		tableCells.push("<td>",jsonResult.ChangePercentYTD.toFixed(2),"%</td>");
+		tableCells.push("<td>",jsonResult.Volume,"</td>");
+		//tableCells.push('<td><div class="input-group"><input type="text" class="form-control" width="50px" /><span class="input-group-btn"><button class="btn btn-secondary" type="submit">Buy</button></span></div></td>');
+		tableCells.push("</tr>");
+
+		$table.addClass("table table-bordered table-striped");			
+		$thead.append(tableHeadCells.join(""));
+		$tbody.append(tableCells.join(""));
+
+		$table.append($thead).append($tbody);
+
+		return $table;
+	};
+	
+	//prototype some methods onto our Quote Service
+	Markit.QuoteService.prototype.clearResult = function(){
+		//this.resetForm();
+		$("#resultContainer").remove();
+		//$("div.alert").remove();
+	};
+	
+</script>
+
+</body>
+</html>
